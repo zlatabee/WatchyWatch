@@ -17,6 +17,7 @@ type Data struct {
 	Timestamp string
 	Audible   bool
 	Incognito bool
+	Category  []string `json:"$category"`
 }
 
 type Event struct {
