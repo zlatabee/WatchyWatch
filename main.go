@@ -40,7 +40,18 @@ type Rule struct {
 
 type Category []interface{}
 
-func main() {
+func getTimeperiods() string {
+	newYork, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		log.Fatalf("Error loading New York location: %v", err)
+	}
+	now := time.Now().In(newYork)
+	endDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, newYork)
+	beginDate := endDate.Add(-24 * time.Hour)
+	return beginDate.Format(time.RFC3339) + "/" + endDate.Format(time.RFC3339)
+}
+
+func getCategories() string {
 	categories := []Category{
 		{[]string{"Work"}, Rule{Type: "regex", Regex: "Google Docs"}},
 		{[]string{"Work", "Programming"}, Rule{Type: "regex", Regex: "GitHub|Stack Overflow"}},
@@ -50,33 +61,29 @@ func main() {
 		{[]string{"Media", "Social Media"}, Rule{Type: "regex", Regex: "reddit|Facebook|Twitter|Instagram", IgnoreCase: true}},
 		{[]string{"Comms", "IM"}, Rule{Type: "regex", Regex: "Messenger|Telegram|Signal|WhatsApp"}},
 		{[]string{"Comms", "Email"}, Rule{Type: "regex", Regex: "Gmail"}}}
-
 	catBytes, err := json.Marshal(categories)
 	if err != nil {
 		log.Fatalf("Error eeeeee: %v", err)
 	}
+	return string(catBytes)
+}
 
+func main() {
 	queryStr := `
   window_events = query_bucket(find_bucket('aw-watcher-window_'));
   not_afk_events = query_bucket(find_bucket('aw-watcher-afk_'));
   not_afk_events = filter_keyvals(not_afk_events, "status", ["not-afk"]);
   events = filter_period_intersect(window_events, not_afk_events);
 
-  classes = ` + string(catBytes) + `;
+  classes = ` + getCategories() + `;
   events = categorize(events, classes);
   events = merge_events_by_keys(events,["$category"]);
 
   RETURN = events;
   `
 
-	ny, err := time.LoadLocation("America/New_York")
-	if err != nil {
-		log.Fatalf("Error loading New York location: %v", err)
-	}
-	timeperiods := time.Now().Add(-24*time.Hour).In(ny).Format(time.RFC3339) + "/" + time.Now().In(ny).Format(time.RFC3339)
-
 	query := strings.SplitAfter(queryStr, ";")
-	req := Request{Query: query, Timeperiods: []string{timeperiods}}
+	req := Request{Query: query, Timeperiods: []string{getTimeperiods()}}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		log.Fatalf("Error aaaaaaaa: %v", err)
