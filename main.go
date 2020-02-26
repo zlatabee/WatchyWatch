@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -68,7 +69,7 @@ func getCategories() string {
 	return string(catBytes)
 }
 
-func main() {
+func queryAW() {
 	queryStr := `
   window_events = query_bucket(find_bucket('aw-watcher-window_'));
   not_afk_events = query_bucket(find_bucket('aw-watcher-afk_'));
@@ -126,4 +127,26 @@ func fillMap(catMap map[string]float64, cat []string, dur float64) {
 	if len(cat) > 1 {
 		fillMap(catMap, cat[:len(cat)-1], dur)
 	}
+}
+
+func main() {
+	existUser := os.Args[1]
+	existToken := os.Args[2]
+	req, err := http.NewRequest("GET", "https://exist.io/api/1/users/"+existUser+"/attributes/", nil)
+	if err != nil {
+		log.Fatalf("Whoops: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+existToken)
+	req.Header.Add("Accept", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Whooooops: %v", err)
+	}
+	respBody, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	if err != nil {
+		log.Fatalf("Another error: %v", err)
+	}
+	log.Print(string(respBody))
 }
