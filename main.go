@@ -17,8 +17,6 @@ type Data struct {
 	Type      string
 	Duration  float64
 	Timestamp string
-	Audible   bool
-	Incognito bool
 	Category  []string `json:"$category"`
 }
 
@@ -78,5 +76,11 @@ func main() {
 		log.Fatalf("Uh oh: %v", err)
 	}
 
-	log.Print(events)
+	if len(events) != 1 {
+		log.Fatalf("Expected 'events' to be length 1, instead got: %v", events)
+	}
+
+	for _, event := range events[0] {
+		log.Printf("%s: %0.1f hours", strings.Join(event.Data.Category, "->"), event.Duration/3600.0)
+	}
 }
