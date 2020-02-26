@@ -32,15 +32,37 @@ type Request struct {
 	Timeperiods []string `json:"timeperiods"`
 }
 
+type Rule struct {
+	Type       string `json:"type"`
+	Regex      string `json:"regex"`
+	IgnoreCase bool   `json:"ignore_case,omitempty"`
+}
+
+type Category []interface{}
+
 func main() {
+	categories := []Category{
+		{[]string{"Work"}, Rule{Type: "regex", Regex: "Google Docs"}},
+		{[]string{"Work", "Programming"}, Rule{Type: "regex", Regex: "GitHub|Stack Overflow"}},
+		{[]string{"Work", "Programming", "ActivityWatch"}, Rule{Type: "regex", Regex: "ActivityWatch|aw-", IgnoreCase: true}},
+		{[]string{"Media", "Games"}, Rule{Type: "regex", Regex: "Minecraft|RimWorld"}},
+		{[]string{"Media", "Video"}, Rule{Type: "regex", Regex: "YouTube|Plex"}},
+		{[]string{"Media", "Social Media"}, Rule{Type: "regex", Regex: "reddit|Facebook|Twitter|Instagram", IgnoreCase: true}},
+		{[]string{"Comms", "IM"}, Rule{Type: "regex", Regex: "Messenger|Telegram|Signal|WhatsApp"}},
+		{[]string{"Comms", "Email"}, Rule{Type: "regex", Regex: "Gmail"}}}
+
+	catBytes, err := json.Marshal(categories)
+	if err != nil {
+		log.Fatalf("Error eeeeee: %v", err)
+	}
+
 	queryStr := `
   window_events = query_bucket(find_bucket('aw-watcher-window_'));
   not_afk_events = query_bucket(find_bucket('aw-watcher-afk_'));
   not_afk_events = filter_keyvals(not_afk_events, "status", ["not-afk"]);
   events = filter_period_intersect(window_events, not_afk_events);
 
-  classes = [[["Work"],{"type":"regex","regex":"Google Docs"}],[["Work","Programming"],{"type":"regex","regex":"GitHub|Stack Overflow"}],[["Work","Programming","ActivityWatch"],{"type":"regex","regex":"ActivityWatch|aw-","ignore_case":true}],[["Media","Games"],{"type":"regex","regex":"Minecraft|RimWorld"}],[["Media","Video"],{"type":"regex","regex":"YouTube|Plex"}],[["Media","Social Media"],{"type":"regex","regex":"reddit|Facebook|Twitter|Instagram","ignore_case":true}],[["Comms","IM"],{"type":"regex","regex":"Messenger|Telegram|Signal|WhatsApp"}],[["Comms","Email"],{"type":"regex","regex":"Gmail"}]];
-
+  classes = ` + string(catBytes) + `;
   events = categorize(events, classes);
   events = merge_events_by_keys(events,["$category"]);
 
