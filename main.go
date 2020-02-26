@@ -109,7 +109,21 @@ func main() {
 		log.Fatalf("Expected 'events' to be length 1, instead got: %v", events)
 	}
 
+	catMap := make(map[string]float64)
+
 	for _, event := range events[0] {
-		log.Printf("%s: %0.1f hours", strings.Join(event.Data.Category, "->"), event.Duration/3600.0)
+		fillMap(catMap, event.Data.Category, event.Duration/3600.0)
+	}
+
+	for cat, dur := range catMap {
+		log.Printf("%s: %0.1f hours", cat, dur)
+	}
+}
+
+func fillMap(catMap map[string]float64, cat []string, dur float64) {
+	catStr := strings.Join(cat, "->")
+	catMap[catStr] += dur
+	if len(cat) > 1 {
+		fillMap(catMap, cat[:len(cat)-1], dur)
 	}
 }
