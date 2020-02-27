@@ -11,6 +11,13 @@ import (
 	"time"
 )
 
+type Event struct {
+	Id        string
+	Timestamp string
+	Duration  float64
+	Data      Data
+}
+
 type Data struct {
 	App       string
 	Url       string
@@ -21,17 +28,7 @@ type Data struct {
 	Category  []string `json:"$category"`
 }
 
-type Event struct {
-	Id        string
-	Timestamp string
-	Duration  float64
-	Data      Data
-}
-
-type Request struct {
-	Query       []string `json:"query"`
-	Timeperiods []string `json:"timeperiods"`
-}
+type Category []interface{}
 
 type Rule struct {
 	Type       string `json:"type"`
@@ -39,7 +36,10 @@ type Rule struct {
 	IgnoreCase bool   `json:"ignore_case,omitempty"`
 }
 
-type Category []interface{}
+type Request struct {
+	Query       []string `json:"query"`
+	Timeperiods []string `json:"timeperiods"`
+}
 
 func getTimeperiods() string {
 	newYork, err := time.LoadLocation("America/New_York")
@@ -64,12 +64,12 @@ func getCategories() string {
 		{[]string{"Comms", "Email"}, Rule{Type: "regex", Regex: "Gmail"}}}
 	catBytes, err := json.Marshal(categories)
 	if err != nil {
-		log.Fatalf("Error eeeeee: %v", err)
+		log.Fatalf("Error marshaling categories: %v", err)
 	}
 	return string(catBytes)
 }
 
-func queryAW() {
+func queryActivityWatch() {
 	queryStr := `
   window_events = query_bucket(find_bucket('aw-watcher-window_'));
   not_afk_events = query_bucket(find_bucket('aw-watcher-afk_'));
@@ -87,23 +87,23 @@ func queryAW() {
 	req := Request{Query: query, Timeperiods: []string{getTimeperiods()}}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
-		log.Fatalf("Error aaaaaaaa: %v", err)
+		log.Fatalf("Error marshaling query: %v", err)
 	}
 
 	resp, err := http.Post("http://localhost:5600/api/0/query", "application/json", bytes.NewBuffer(reqBytes))
 	if err != nil {
-		log.Fatalf("Error oh no: %v", err)
+		log.Fatalf("Error sending POST request: %v", err)
 	}
 	respBody, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if err != nil {
-		log.Fatalf("Another error: %v", err)
+		log.Fatalf("Error reading POST response: %v", err)
 	}
 
 	events := make([][]Event, 0)
 
 	if err := json.Unmarshal(respBody, &events); err != nil {
-		log.Fatalf("Uh oh: %v", err)
+		log.Fatalf("Error unmarshaling POST response: %v", err)
 	}
 
 	if len(events) != 1 {
@@ -113,7 +113,12 @@ func queryAW() {
 	catMap := make(map[string]float64)
 
 	for _, event := range events[0] {
-		fillMap(catMap, event.Data.Category, event.Duration/3600.0)
+		cat := event.Data.Category
+		dur := event.Duration / 3600.0
+		for len(cat) >= 1 {
+			catMap[strings.Join(cat, "->")] += dur
+			cat = cat[:len(cat)-1]
+		}
 	}
 
 	for cat, dur := range catMap {
@@ -121,32 +126,29 @@ func queryAW() {
 	}
 }
 
-func fillMap(catMap map[string]float64, cat []string, dur float64) {
-	catStr := strings.Join(cat, "->")
-	catMap[catStr] += dur
-	if len(cat) > 1 {
-		fillMap(catMap, cat[:len(cat)-1], dur)
-	}
-}
-
-func main() {
+func queryExist() {
 	existUser := os.Args[1]
 	existToken := os.Args[2]
 	req, err := http.NewRequest("GET", "https://exist.io/api/1/users/"+existUser+"/attributes/", nil)
 	if err != nil {
-		log.Fatalf("Whoops: %v", err)
+		log.Fatalf("Error creating new GET request: %v", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+existToken)
 	req.Header.Add("Accept", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Whooooops: %v", err)
+		log.Fatalf("Error sending GET request: %v", err)
 	}
 	respBody, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	if err != nil {
-		log.Fatalf("Another error: %v", err)
+		log.Fatalf("Error reading GET response: %v", err)
 	}
 	log.Print(string(respBody))
+}
+
+func main() {
+	//queryExist()
+	queryActivityWatch()
 }
